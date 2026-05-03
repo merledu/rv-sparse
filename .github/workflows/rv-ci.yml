@@ -15,26 +15,22 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install RISC-V Toolchain
+    - name: Install RISC-V Toolchain and QEMU
       run: |
         sudo apt-get update
-        # Install the ELF toolchain which is standard for bare-metal static libraries
-        sudo apt-get install -y gcc-riscv64-unknown-elf cmake make
+        # Install the Linux-GNU toolchain (which supports libc/printf) and QEMU emulator
+        sudo apt-get install -y gcc-riscv64-linux-gnu cmake make qemu-user
 
     - name: Configure CMake
       run: |
-        # Override the C compiler to point to the Ubuntu RISC-V GCC
-        cmake -B build -DCMAKE_C_COMPILER=riscv64-unknown-elf-gcc
+        # Override the C compiler to point to the Ubuntu RISC-V GCC and enable testing
+        cmake -B build -DCMAKE_C_COMPILER=riscv64-linux-gnu-gcc -DBUILD_TESTS=ON
 
-    - name: Build rv-sparse Library
+    - name: Build rv-sparse Library and Tests
       run: |
         cmake --build build -j $(nproc)
         
-    - name: Verify RVV Library Archive
+    - name: Execute Tests via QEMU
       run: |
-        if [ -f "build/librv_sparse.a" ]; then
-          echo "Success: librv_sparse.a was built successfully with RVV support."
-        else
-          echo "Error: Library archive not found."
-          exit 1
-        fi
+        echo "Running SpMV Scalar Test..."
+        qemu-riscv64 -L /usr/riscv64-linux-gnu build/test_spmv_scalar

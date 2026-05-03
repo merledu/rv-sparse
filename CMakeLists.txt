@@ -33,3 +33,15 @@ add_library(rv_sparse STATIC ${SOURCES})
 # does not ship with newlib/libc out of the box, making linking a standard
 # executable (with printf) impossible without additional setup.
 # Compiling the library statically proves our RVV compilation works perfectly.
+
+# --- Testing Framework ---
+enable_testing()
+
+# We only build tests if we are in an environment that supports linking (like Ubuntu CI)
+option(BUILD_TESTS "Build the test suite" OFF)
+
+if(BUILD_TESTS)
+    add_executable(test_spmv_scalar tests/test_spmv_scalar.c)
+    target_link_libraries(test_spmv_scalar rv_sparse m)
+    add_test(NAME SpMVScalarTest COMMAND test_spmv_scalar)
+endif()
