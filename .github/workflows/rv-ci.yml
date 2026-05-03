@@ -1,0 +1,36 @@
+name: RISC-V CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Compile RVV Library
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install RISC-V Toolchain and QEMU
+      run: |
+        sudo apt-get update
+        # Install the Linux-GNU toolchain (which supports libc/printf) and QEMU emulator
+        sudo apt-get install -y gcc-riscv64-linux-gnu cmake make qemu-user
+
+    - name: Configure CMake
+      run: |
+        # Override the C compiler to point to the Ubuntu RISC-V GCC and enable testing
+        cmake -B build -DCMAKE_C_COMPILER=riscv64-linux-gnu-gcc -DBUILD_TESTS=ON
+
+    - name: Build rv-sparse Library and Tests
+      run: |
+        cmake --build build -j $(nproc)
+        
+    - name: Execute Tests via QEMU
+      run: |
+        echo "Running SpMV Scalar Test..."
+        qemu-riscv64 -L /usr/riscv64-linux-gnu build/test_spmv_scalar
