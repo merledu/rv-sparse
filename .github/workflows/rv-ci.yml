@@ -1,0 +1,40 @@
+name: RISC-V CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Compile RVV Library
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install RISC-V Toolchain
+      run: |
+        sudo apt-get update
+        # Install the ELF toolchain which is standard for bare-metal static libraries
+        sudo apt-get install -y gcc-riscv64-unknown-elf cmake make
+
+    - name: Configure CMake
+      run: |
+        # Override the C compiler to point to the Ubuntu RISC-V GCC
+        cmake -B build -DCMAKE_C_COMPILER=riscv64-unknown-elf-gcc
+
+    - name: Build rv-sparse Library
+      run: |
+        cmake --build build -j $(nproc)
+        
+    - name: Verify RVV Library Archive
+      run: |
+        if [ -f "build/librv_sparse.a" ]; then
+          echo "Success: librv_sparse.a was built successfully with RVV support."
+        else
+          echo "Error: Library archive not found."
+          exit 1
+        fi
