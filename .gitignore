@@ -1,0 +1,4 @@
+axb_rowip
+rv_sparse_tests
+bench_spmm
+*.o
