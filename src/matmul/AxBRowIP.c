@@ -2,28 +2,50 @@
 #include <stdlib.h>
 
 void RowWiseInnerProduct(const int M, const int K, const int N, float* aD, int* aC, int* aR, float* bD, int* bC, int* bR, float* cD, int* cC, int* cR){
+    (void)N;
     int row_count = 0;
+    float* cD_ = (float *)calloc(K, sizeof(float));
+    int* touched = (int *)calloc(K, sizeof(int));
+    int* touched_cols = (int *)malloc(K * sizeof(int));
+
     for(int row=0; row<M; row++){
         cR[row] = row_count;
-        float* cD_ = (float *)calloc(K, sizeof(float));
+        int touched_count = 0;
+
         for(int col=aR[row]; col<aR[row+1]; col++){
             float valA = aD[col];
             for(int b_col=bR[aC[col]]; b_col<bR[aC[col]+1]; b_col++){
                 float valB = bD[b_col];
                 // int idx = row*K + bC[b_col];
                 int idx = bC[b_col];
+
+                if (!touched[idx]){
+                    touched[idx] = 1;
+                    touched_cols[touched_count] = idx;
+                    touched_count++;
+                }
+
                 cD_[idx] += valA * valB;
             }
         }
-        for (int i=0; i<K; i++){
-            if (cD_[i] != 0){
-                cC[row_count] = i;
-                cD[row_count] = cD_[i];
+
+        for (int i=0; i<touched_count; i++){
+            int idx = touched_cols[i];
+
+            if (cD_[idx] != 0){
+                cC[row_count] = idx;
+                cD[row_count] = cD_[idx];
                 row_count++;
             }
+
+            cD_[idx] = 0;
+            touched[idx] = 0;
         }
-        free(cD_);
     }
+
+    free(cD_);
+    free(touched);
+    free(touched_cols);
     cR[M] = row_count;
 }
 
@@ -61,6 +83,7 @@ int main(){
     const int aNNZ = gInfo[2];
     const int bNNZ = gInfo[2];
     const int rN   = gInfo[3];
+    (void)rN;
 
     float* aD = (float *)malloc(aNNZ*sizeof(float));
     int*   aC = (int *)malloc(aNNZ*sizeof(int));
