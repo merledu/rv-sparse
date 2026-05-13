@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 void RowWiseInnerProduct(const int M, const int K, const int N, float* aD, int* aC, int* aR, float* bD, int* bC, int* bR, float* cD, int* cC, int* cR){
+    (void)N;
     int row_count = 0;
     for(int row=0; row<M; row++){
         cR[row] = row_count;
@@ -61,6 +62,7 @@ int main(){
     const int aNNZ = gInfo[2];
     const int bNNZ = gInfo[2];
     const int rN   = gInfo[3];
+    (void)rN;
 
     float* aD = (float *)malloc(aNNZ*sizeof(float));
     int*   aC = (int *)malloc(aNNZ*sizeof(int));
@@ -113,11 +115,14 @@ int main(){
     fclose(file2);
     //////////////////////////////////////////
 
-    int cNNZ = cNNZ_estimation(M,K,N,aNNZ,bNNZ);
-    printf("Estimated cNNZ = %d \n", cNNZ);
+    int estimated_cNNZ = cNNZ_estimation(M,K,N,aNNZ,bNNZ);
+    size_t cNNZ_capacity = (size_t)M * (size_t)K;
+    printf("Estimated cNNZ = %d \n", estimated_cNNZ);
 
-    float* cD = (float *)malloc(cNNZ*sizeof(float));
-    int* cC = (int *)malloc(cNNZ*sizeof(int));
+    // Allocate the dense upper bound so the output buffers cannot overflow
+    // when the estimated cNNZ is lower than the actual result nnz.
+    float* cD = (float *)malloc(cNNZ_capacity*sizeof(float));
+    int* cC = (int *)malloc(cNNZ_capacity*sizeof(int));
     int* cR = (int *)malloc((M+1)*sizeof(int));
 
     RowWiseInnerProduct(M, K, N, aD, aC, aR, bD, bC, bR, cD, cC, cR);
