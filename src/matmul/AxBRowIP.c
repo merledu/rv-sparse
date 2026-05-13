@@ -145,6 +145,7 @@ int main(){
     free(bD);
     free(bC);
     free(bR);
+    free(gInfo);
     free(cD);
     free(cC);
     free(cR);
