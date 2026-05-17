@@ -1,0 +1,16 @@
+# Build artifacts
+a.out
+*.exe
+bench_riscv
+bench_spmm_riscv
+test_native
+test_riscv
+test_rvv
+test_rvv_ops
+
+# IDE
+.vs/
+.vscode/
+
+# Optional local gem5 resource map (ignore if machine-specific)
+local_resources.json
