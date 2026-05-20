@@ -1,3 +1,6 @@
+import sys
+import os
+
 def ProcessMTX(mtx_path):
     matrix = []
     rows = []
@@ -33,12 +36,8 @@ def ProcessMTX(mtx_path):
                 cols.append(col_item-1)
                 values.append(val_item)
                 
-                # rc_value[f"{row_item}_{col_item}"] = val_item
                 rc_value[row_item] = [col_item, val_item]
     
-                # if row_item not in CSR_rowPtr:
-                #     CSR_rowPtr.append(
-                
                 if row_item in row_col:
                     row_col[row_item] += [col_item]
                 else:
@@ -49,10 +48,27 @@ def ProcessMTX(mtx_path):
                         row_col[col_item] += [row_item]
                     else:
                         row_col[col_item] = [row_item]
+                    
+                    # For SpGEMM, if symmetric, we also need to append the transposed entry.
+                    if row_item != col_item:
+                        rows.append(col_item-1)
+                        cols.append(row_item-1)
+                        values.append(val_item)
 
-    return rows,cols,values,no_of_rows,no_of_cols,NNZ_values
+    # Recalculate NNZ in case we appended symmetric entries
+    NNZ_values = len(rows)
+
+    return rows, cols, values, no_of_rows, no_of_cols, NNZ_values
 
 def coo_to_csr(coo_row, coo_col, coo_data, nrows):
+    # Zip, sort by row first, then by col, to ensure CSR column indices are sorted within each row.
+    # This solves the correctness bug where unordered COO yields unsorted CSR.
+    sorted_triplets = sorted(zip(coo_row, coo_col, coo_data), key=lambda x: (x[0], x[1]))
+    if sorted_triplets:
+        coo_row, coo_col, coo_data = zip(*sorted_triplets)
+    else:
+        coo_row, coo_col, coo_data = [], [], []
+
     # Initialize the CSR arrays
     csr_data = []
     csr_indices = []
@@ -61,13 +77,11 @@ def coo_to_csr(coo_row, coo_col, coo_data, nrows):
     # Count the non-zero elements in each row
     row_counts = [0] * (nrows+1)
     for row in coo_row:
-        # print(row)
         row_counts[row] += 1
 
     # Fill the csr_indptr array based on row_count
     for i in range(nrows):
         csr_indptr.append(csr_indptr[-1] + row_counts[i])
-    # print(csr_indptr)
 
     # Fill the csr_data and csr_indices arrays
     for i in range(len(coo_data)):
@@ -91,55 +105,107 @@ def coo_to_csr(coo_row, coo_col, coo_data, nrows):
     return csr_data, csr_indices, csr_indptr, reduced_indices
     
 
-def Main(matID):
-    matrix = ["patents_main",
-              "p2p-Gnutella31",
-              "roadNet-CA",
-              "webbase-1M",
-              "m133-b3",
-              "cit-Patents",
-              "mario002",
-              "web-Google",
-              "scircuit",
-              "amazon0312",
-              "ca-CondMat",
-              "email-Enron",
-              "wiki-Vote",
-              "cage12",
-              "2cubes_sphere",
-              "offshore",
-              "cop20k_A",
-              "filter3D",
-              "poisson3Da",
-              "example"]
+def Main(mat_A, mat_B):
+    matrix_list = ["patents_main",
+                   "p2p-Gnutella31",
+                   "roadNet-CA",
+                   "webbase-1M",
+                   "m133-b3",
+                   "cit-Patents",
+                   "mario002",
+                   "web-Google",
+                   "scircuit",
+                   "amazon0312",
+                   "ca-CondMat",
+                   "email-Enron",
+                   "wiki-Vote",
+                   "cage12",
+                   "2cubes_sphere",
+                   "offshore",
+                   "cop20k_A",
+                   "filter3D",
+                   "poisson3Da",
+                   "example"]
 
-    mtx_path = f"matrices/{matrix[matID]}/"+matrix[matID]+".mtx"
+    # Map numeric index to name if string is convertible to int and within range
+    try:
+        idx_A = int(mat_A)
+        if 0 <= idx_A < len(matrix_list):
+            mat_A = matrix_list[idx_A]
+    except ValueError:
+        pass
 
-    rows,cols,values,no_of_rows,no_of_cols,NNZ_values = ProcessMTX(mtx_path)
-    CSR_values,CSR_colIdx,CSR_rowPtr, CSR_redColIdx = coo_to_csr(rows,cols,values,no_of_rows)
+    try:
+        idx_B = int(mat_B)
+        if 0 <= idx_B < len(matrix_list):
+            mat_B = matrix_list[idx_B]
+    except ValueError:
+        pass
 
-    with open('matrix_data/CSR_values.txt', 'w') as f:
-        for item in CSR_values:
+    mtx_path_A = f"matrices/{mat_A}/{mat_A}.mtx"
+    mtx_path_B = f"matrices/{mat_B}/{mat_B}.mtx"
+
+    if not os.path.exists(mtx_path_A):
+        print(f"Error: Matrix A path {mtx_path_A} does not exist.")
+        return
+    if not os.path.exists(mtx_path_B):
+        print(f"Error: Matrix B path {mtx_path_B} does not exist.")
+        return
+
+    print(f"Processing Matrix A: {mtx_path_A}")
+    rows_A, cols_A, values_A, M, K_A, aNNZ = ProcessMTX(mtx_path_A)
+    CSR_values_A, CSR_colIdx_A, CSR_rowPtr_A, CSR_redColIdx_A = coo_to_csr(rows_A, cols_A, values_A, M)
+
+    print(f"Processing Matrix B: {mtx_path_B}")
+    rows_B, cols_B, values_B, K_B, N, bNNZ = ProcessMTX(mtx_path_B)
+    CSR_values_B, CSR_colIdx_B, CSR_rowPtr_B, CSR_redColIdx_B = coo_to_csr(rows_B, cols_B, values_B, K_B)
+
+    if K_A != K_B:
+        print(f"Warning: Dimensions mismatch for SpGEMM! A is {M}x{K_A}, B is {K_B}x{N}")
+
+    os.makedirs('matrix_data', exist_ok=True)
+
+    # Export Matrix A CSR
+    with open('matrix_data/A_values.txt', 'w') as f:
+        for item in CSR_values_A:
             f.write(f"{item}\n")
-        # f.write(f"{CSR_values}")
     
-    with open('matrix_data/CSR_colIdx.txt', 'w') as f:
-        for item in CSR_colIdx:
+    with open('matrix_data/A_colIdx.txt', 'w') as f:
+        for item in CSR_colIdx_A:
             f.write(f"{item}\n")
-        # f.write(f"{CSR_colIdx}")
     
-    with open('matrix_data/CSR_rowPtr.txt', 'w') as f:
-        for item in CSR_rowPtr:
+    with open('matrix_data/A_rowPtr.txt', 'w') as f:
+        for item in CSR_rowPtr_A:
             f.write(f"{item}\n")
-        # f.write(f"{CSR_rowPtr}")
+
+    # Export Matrix B CSR
+    with open('matrix_data/B_values.txt', 'w') as f:
+        for item in CSR_values_B:
+            f.write(f"{item}\n")
     
-    with open('matrix_data/CSR_redColIdx.txt', 'w') as f:
-        for item in CSR_redColIdx:
+    with open('matrix_data/B_colIdx.txt', 'w') as f:
+        for item in CSR_colIdx_B:
             f.write(f"{item}\n")
-        # f.write(f"{CSR_redColIdx}")
+    
+    with open('matrix_data/B_rowPtr.txt', 'w') as f:
+        for item in CSR_rowPtr_B:
+            f.write(f"{item}\n")
             
+    # Export GeneralInfo: M, K_A, N, aNNZ, bNNZ
     with open('matrix_data/GeneralInfo.txt', 'w') as f:
-        for item in [no_of_rows, no_of_cols, NNZ_values, max(CSR_redColIdx)+1]:
+        for item in [M, K_A, N, aNNZ, bNNZ]:
             f.write(f"{item}\n")
+    print(f"Successfully generated CSR matrices in matrix_data/: A ({M}x{K_A}, NNZ={aNNZ}), B ({K_B}x{N}, NNZ={bNNZ})")
 
-Main(11)
+if __name__ == "__main__":
+    if len(sys.argv) == 3:
+        Main(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) == 2:
+        Main(sys.argv[1], sys.argv[1])
+    else:
+        # Default fallback to example if it exists, or email-Enron (which needs downloading).
+        # We'll default to 'example_square_A' and 'example_square_B' as our standard test matrices.
+        if os.path.exists("matrices/example_square_A/example_square_A.mtx"):
+            Main("example_square_A", "example_square_B")
+        else:
+            Main(11, 11)
