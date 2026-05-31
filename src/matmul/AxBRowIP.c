@@ -71,6 +71,7 @@ int main(){
     int*   bR = (int *)malloc((K+1)*sizeof(int));
 
     //////////////////////////////////////////
+    /* Load matrix A */
     idx = 0;
     file = fopen("matrix_data/CSR_values.txt", "r");
     if (file == NULL) {
@@ -80,7 +81,6 @@ int main(){
     float val;
     while (fscanf(file, "%f", &val) == 1) {
         aD[idx] = val;
-        bD[idx] = val;
         idx++;
     }
     fclose(file);
@@ -94,7 +94,6 @@ int main(){
     idx = 0;
     while (fscanf(file1, "%d", &number) == 1) {
         aC[idx] = number;
-        bC[idx] = number;
         idx++;
     }
     fclose(file1);
@@ -107,6 +106,44 @@ int main(){
     idx = 0;
     while (fscanf(file2, "%d", &number) == 1) {
         aR[idx] = number;
+        idx++;
+    }
+    fclose(file2);
+    //////////////////////////////////////////
+
+    /* Load matrix B */
+    idx = 0;
+    file = fopen("matrix_data/B_CSR_values.txt", "r");
+    if (file == NULL) {
+        perror("Error opening matrix_data/B_CSR_values.txt — provide B matrix files (see README)");
+        return -1;
+    }
+    while (fscanf(file, "%f", &val) == 1) {
+        bD[idx] = val;
+        idx++;
+    }
+    fclose(file);
+
+    //////////////////////////////////////////
+    file1 = fopen("matrix_data/B_CSR_colIdx.txt", "r");
+    if (file1 == NULL) {
+        perror("Error opening matrix_data/B_CSR_colIdx.txt");
+        return -1;
+    }
+    idx = 0;
+    while (fscanf(file1, "%d", &number) == 1) {
+        bC[idx] = number;
+        idx++;
+    }
+    fclose(file1);
+    //////////////////////////////////////////
+    file2 = fopen("matrix_data/B_CSR_rowPtr.txt", "r");
+    if (file2 == NULL) {
+        perror("Error opening matrix_data/B_CSR_rowPtr.txt");
+        return -1;
+    }
+    idx = 0;
+    while (fscanf(file2, "%d", &number) == 1) {
         bR[idx] = number;
         idx++;
     }
@@ -129,7 +166,7 @@ int main(){
     //     }
     // }
 
-    
+
     // for(int i=0; i<M+1; i++){
     //     for(int j=cR[i]; j<cR[i+1]; j++){
     //         printf("%.f ", cD[j]);
@@ -148,6 +185,7 @@ int main(){
     free(cD);
     free(cC);
     free(cR);
+    free(gInfo);
 
     return 0;
 }
