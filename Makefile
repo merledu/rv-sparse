@@ -1,6 +1,8 @@
 CC ?= gcc
-CFLAGS ?= -O2 -Wall -Wextra -std=c11
+CFLAGS ?= -O2 -Wall -Wextra -Wpedantic -std=c11
 INCLUDES = -Iinclude
+
+BUILD_DIR = build
 
 SRC = \
 	src/core/matrix.c \
@@ -8,22 +10,29 @@ SRC = \
 	src/core/spgemm.c \
 	src/kernels/spgemm/csr_scalar_f32.c
 
-EXAMPLE = examples/spgemm_csr_f32.c
-BUILD_DIR = build
-TARGET = $(BUILD_DIR)/spgemm_csr_f32
+EXAMPLE_F32 = $(BUILD_DIR)/spgemm_csr_f32
+TEST_F32 = $(BUILD_DIR)/test_spgemm_csr_f32
 
-.PHONY: all run clean
+.PHONY: all run test check clean
 
-all: $(TARGET)
+all: $(EXAMPLE_F32) $(TEST_F32)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-$(TARGET): $(SRC) $(EXAMPLE) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(EXAMPLE) -o $(TARGET)
+$(EXAMPLE_F32): $(SRC) examples/spgemm_csr_f32.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) examples/spgemm_csr_f32.c -o $(EXAMPLE_F32)
 
-run: $(TARGET)
-	./$(TARGET)
+$(TEST_F32): $(SRC) tests/test_spgemm_csr_f32.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) tests/test_spgemm_csr_f32.c -o $(TEST_F32)
+
+run: $(EXAMPLE_F32)
+	./$(EXAMPLE_F32)
+
+test: $(TEST_F32)
+	./$(TEST_F32)
+
+check: all test
 
 clean:
 	rm -rf $(BUILD_DIR)
