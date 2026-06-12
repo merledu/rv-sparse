@@ -8,6 +8,7 @@ SRC = \
 	src/core/matrix.c \
 	src/core/error.c \
 	src/core/spgemm.c \
+	src/kernel/spgemm/csr_spgemm_wrappers.c\
 	src/kernels/spgemm/csr_scalar_f32.c
 
 EXAMPLE_F32 = $(BUILD_DIR)/spgemm_csr_f32
