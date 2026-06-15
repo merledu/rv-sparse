@@ -1,3 +1,12 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * Internal CSR SpGEMM wrapper layer.
+ * Bridges the public API with raw pointer-based backend kernels.
+ */
+
 #ifndef RVSP_CSR_SPGEMM_KERNELS_H
 #define RVSP_CSR_SPGEMM_KERNELS_H
 
@@ -54,4 +63,4 @@ rvsp_status_t rvsp_spgemm_csr_scalar_unroll4_f32_raw(
     float **c_values_out,
     int32_t *c_nnz_out);
 
-#endif
+#endif /*RVSP_CSR_SPGEMM_KERNELS_H*/

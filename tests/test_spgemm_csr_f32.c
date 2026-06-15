@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * Correctness test for the rv-sparse public API.
+ */
+
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>

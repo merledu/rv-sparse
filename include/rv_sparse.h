@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * This file is part of rv-sparse.
+ *
+ * Public API for the rv-sparse library.
+ */
+
 #ifndef RV_SPARSE_H
 #define RV_SPARSE_H
 
@@ -42,9 +52,8 @@ extern "C"
      *
      *     C = A * B
      *
-     * First implementation:
-     *     FP32 x FP32 -> FP32 scalar backend,
-     *     based on the existing AxBRowIP RowWiseInnerProduct prototype.
+     * Current implementation:
+     *     FP32 x FP32 -> FP32 scalar backend.
      *
      * Planned next target:
      *     INT8 x INT8 -> INT32
@@ -59,4 +68,4 @@ extern "C"
 }
 #endif
 
-#endif
+#endif /* RV_SPARSE_H */

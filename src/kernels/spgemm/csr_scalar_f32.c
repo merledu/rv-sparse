@@ -1,16 +1,18 @@
 /*
  * Copyright (C) 2026 rv-sparse contributors
  *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
  * This file is part of rv-sparse.
  *
- * This file implements the initial scalar FP32 CSR SpGEMM kernel:
+ * rv-sparse is an experimental sparse linear algebra library focused on
+ * portable sparse kernels and future RISC-V optimization.
  *
- *     C = A * B
- *
- * where A, B, and C are stored in Compressed Sparse Row (CSR) format.
- *
- * The implementation is intended as a correctness-first baseline.
+ * This file implements a CSR SpGEMM backend kernel. The kernel is intended
+ * to be called through the internal wrapper and dispatcher layers, not
+ * directly by users of the public API.
  */
+
 #include <stdlib.h>
 #include <stdlib.h>
 #include "rv_sparse.h"

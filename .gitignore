@@ -1,4 +1,10 @@
+# Build directories
 build/
+bin/
+obj/
+lib/
+
+# Compiled files
 *.o
 *.a
 *.so
@@ -21,5 +27,5 @@ build/
 *.tmp
 *.log
 
-# Personals notes (no public)
+# Personal notes
 /docs/personal_notes.md

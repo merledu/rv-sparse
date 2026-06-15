@@ -1,3 +1,16 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * This file is part of rv-sparse.
+ *
+ * Internal CSR SpGEMM wrapper layer.
+ *
+ * This file connects the public CSR matrix descriptors used by the API
+ * with the raw pointer-based backend kernels.
+ */
+
 #include <stddef.h>
 #include "rv_sparse.h"
 #include "csr_spgemm_kernels.h"

@@ -1,3 +1,13 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * This file is part of rv-sparse.
+ *
+ * Public API for the rv-sparse library.
+ */
+
 #ifndef RV_SPARSE_TYPES_H
 #define RV_SPARSE_TYPES_H
 
@@ -68,4 +78,4 @@ extern "C"
 }
 #endif
 
-#endif
+#endif /*RV_SPARSE_TYPES_H */
