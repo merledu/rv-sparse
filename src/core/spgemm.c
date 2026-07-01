@@ -62,6 +62,21 @@ rvsp_status_t rvsp_spgemm_csr(const rvsp_csr_matrix_t *A, const rvsp_csr_matrix_
         return rvsp_spgemm_csr_scalar_unroll4_f32(A, B, C);
     }
 
+    // RVV init kernels
+    if (backend == RVSP_BACKEND_RVV_INTRINSICS &&
+        A->dtype == RVSP_DTYPE_INT8 &&
+        B->dtype == RVSP_DTYPE_INT8)
+    {
+        return rvsp_spgemm_csr_rvv_i8_indexed_marked(A, B, C);
+    }
+
+    if (backend == RVSP_BACKEND_RVV_INTRINSICS &&
+        A->dtype == RVSP_DTYPE_FP32 &&
+        B->dtype == RVSP_DTYPE_FP32)
+    {
+        return rvsp_spgemm_csr_rvv_f32_indexed_marked(A, B, C);
+    }
+
     // default error
     return RVSP_ERROR_UNSUPPORTED_BACKEND;
 }

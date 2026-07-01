@@ -1,14 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "exp_raw_kernels.h"
+#include "csr_spgemm_kernels.h"
 
 #if defined(__riscv_vector)
 #include <riscv_vector.h>
 #define EXP_HAVE_RVV_INTRINSICS 1
 #endif
 
-rvsp_status_t exp_accumulate_row_f32_rvv_indexed_fast(float a_val, int32_t b_nnz,
+rvsp_status_t rvsp_accumulate_row_f32_rvv_indexed_fast(float a_val, int32_t b_nnz,
                                                       const int32_t *b_col_idx,
                                                       const float *b_values,
                                                       float *acc)

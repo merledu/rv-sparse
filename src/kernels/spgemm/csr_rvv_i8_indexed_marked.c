@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "exp_raw_kernels.h"
+#include "csr_spgemm_kernels.h"
 
 static int compare_i32(const void *a, const void *b)
 {
@@ -73,7 +73,7 @@ static rvsp_status_t reserve_output_capacity(int32_t **col_idx, int32_t **values
     return RVSP_SUCCESS;
 }
 
-rvsp_status_t exp_spgemm_csr_rvv_i8_indexed_marked_raw(int32_t a_rows, int32_t a_cols, int32_t b_cols,
+rvsp_status_t rvsp_spgemm_csr_rvv_i8_indexed_marked_raw(int32_t a_rows, int32_t a_cols, int32_t b_cols,
                                                        const int32_t *a_row_ptr, const int32_t *a_col_idx,
                                                        const int8_t *a_values, const int32_t *b_row_ptr,
                                                        const int32_t *b_col_idx, const int8_t *b_values,
@@ -179,7 +179,7 @@ rvsp_status_t exp_spgemm_csr_rvv_i8_indexed_marked_raw(int32_t a_rows, int32_t a
                 }
             }
 
-            rvsp_status_t status = exp_accumulate_row_i8_rvv_indexed_fast(a_values[a_pos], b_end - b_start,
+            rvsp_status_t status = rvsp_accumulate_row_i8_rvv_indexed_fast(a_values[a_pos], b_end - b_start,
                                                                           &b_col_idx[b_start], &b_values[b_start],
                                                                           acc);
 
