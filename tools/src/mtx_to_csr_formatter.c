@@ -183,7 +183,7 @@ struct CSR assemble_csr_matrix(const char *filePath) {
   vector_add_int(matrix.row_ptr, 0);
 
   for (int i = 0; i < M; i++) {
-    int prev = ((int *)matrix.row_ptr)[i];
+    int prev = ((int *)matrix.row_ptr->data)[i];
     vector_add_int(matrix.row_ptr, prev + row_count[i]);
   }
   free(row_count);
@@ -198,13 +198,15 @@ struct CSR assemble_csr_matrix(const char *filePath) {
     free(coo_val);
     return matrix;
   }
+
   for (int i = 0; i < M; i++) {
-    cursor[i] = ((int *)matrix.row_ptr)[i];
+    cursor[i] = ((int *)matrix.row_ptr->data)[i];
   }
 
   // pre-populate col_ind and val with placeholders so we can write by index
   matrix.col_ind = vector_create_int();
   matrix.val = vector_create_float();
+
   for (int k = 0; k < nnz; k++) {
     vector_add_int(matrix.col_ind, 0);
     vector_add_float(matrix.val, 0.0f);
@@ -213,8 +215,8 @@ struct CSR assemble_csr_matrix(const char *filePath) {
   for (int k = 0; k < nnz; k++) {
     int r = coo_row[k];
     int dest = cursor[r]++;
-    ((int *)matrix.col_ind)[dest] = coo_col[k];
-    ((float *)matrix.val)[dest] = coo_val[k];
+    ((int *)matrix.col_ind->data)[dest] = coo_col[k];
+    ((float *)matrix.val->data)[dest] = coo_val[k];
   }
 
   free(cursor);
