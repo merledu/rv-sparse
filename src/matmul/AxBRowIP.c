@@ -57,7 +57,7 @@ int main(){
 
     const int M    = gInfo[0];
     const int K    = gInfo[1];
-    const int N    = gInfo[0];
+    const int N    = gInfo[1];
     const int aNNZ = gInfo[2];
     const int bNNZ = gInfo[2];
     const int rN   = gInfo[3];
