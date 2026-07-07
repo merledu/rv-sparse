@@ -187,7 +187,7 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f32_raw(int32_t a_rows, int32_t a_cols, int
             mark[col] = 0;
         }
 
-        // Symbolic counts are an upper bound; cancellation can shrink rows.
+        // Symbolic counts are an upper bound since cancellation can shrink rows.
         c_row_ptr[row + 1] = dst;
     }
 
