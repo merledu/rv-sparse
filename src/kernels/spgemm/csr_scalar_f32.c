@@ -60,8 +60,7 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f32_raw(int32_t a_rows, int32_t a_cols, int
         return RVSP_ERROR_ALLOCATION_FAILED;
     }
 
-    // Symbolic pass: count the distinct output columns of each row,
-    // validating A's column indices along the way.
+    // Symbolic pass.
     int64_t total_nnz = 0;
 
     for (int32_t row = 0; row < a_rows; row++)

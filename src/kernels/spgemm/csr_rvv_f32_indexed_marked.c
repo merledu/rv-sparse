@@ -293,8 +293,7 @@ rvsp_status_t rvsp_spgemm_csr_rvv_f32_indexed_marked_raw(
         }
     }
 
-    // Symbolic pass: count the distinct output columns of each row,
-    // validating A's and B's column indices along the way.
+    // Symbolic pass.
     int64_t total_nnz = 0;
 
     for (int32_t row = 0; row < a_rows; row++) {

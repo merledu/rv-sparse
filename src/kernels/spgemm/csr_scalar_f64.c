@@ -1,7 +1,17 @@
+/*
+ * Copyright (C) 2026 rv-sparse contributors
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ *
+ * Scalar FP64 CSR SpGEMM kernel.
+ * Computes FP64 x FP64 with FP64 accumulation/output.
+ */
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <limits.h>
 
+#include "rv_sparse.h"
 #include "csr_spgemm_kernels.h"
 
 static int compare_i32_f64(const void *a, const void *b)
@@ -83,6 +93,7 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
         }
     }
 
+    // Symbolic pass.
     int64_t total_nnz = 0;
 
     for (int32_t row = 0; row < a_rows; row++)
@@ -128,8 +139,6 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
                 return RVSP_ERROR_INVALID_ARGUMENT;
             }
 
-            double a_val = a_values[ap];
-
             for (int32_t bp = b_start; bp < b_end; bp++)
             {
                 int32_t col = b_col_idx[bp];
@@ -149,28 +158,15 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
                     mark[col] = 1;
                     touched[touched_count] = col;
                     touched_count++;
-                    acc[col] = 0.0;
                 }
-
-                acc[col] += a_val * b_values[bp];
             }
         }
 
-        int32_t row_nnz = 0;
+        c_row_ptr[row] = touched_count; // per-row count; prefix-summed below
 
-        for (int32_t i = 0; i < touched_count; i++)
-        {
-            int32_t col = touched[i];
-
-            if (acc[col] != 0.0)
-            {
-                row_nnz++;
-            }
-        }
+        total_nnz += touched_count;
 
         reset_f64_workspace(acc, mark, touched, touched_count);
-
-        total_nnz += row_nnz;
 
         if (total_nnz > INT32_MAX)
         {
@@ -180,42 +176,36 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
             free(mark);
             return RVSP_ERROR_ALLOCATION_FAILED;
         }
-
-        c_row_ptr[row + 1] = row_nnz;
     }
 
-    int32_t prefix = 0;
+    // Exclusive prefix sum turns the per-row counts into row pointers.
+    int32_t running = 0;
 
     for (int32_t row = 0; row < a_rows; row++)
     {
-        int32_t row_count = c_row_ptr[row + 1];
-        c_row_ptr[row] = prefix;
-        prefix += row_count;
-        c_row_ptr[row + 1] = prefix;
+        int32_t count = c_row_ptr[row];
+        c_row_ptr[row] = running;
+        running += count;
     }
 
-    int32_t c_nnz = (int32_t)total_nnz;
+    c_row_ptr[a_rows] = running;
 
-    int32_t *c_col_idx = NULL;
-    double *c_values = NULL;
+    size_t alloc_nnz = total_nnz > 0 ? (size_t)total_nnz : 1;
+    int32_t *c_col_idx = (int32_t *)malloc(alloc_nnz * sizeof(int32_t));
+    double *c_values = (double *)malloc(alloc_nnz * sizeof(double));
 
-    if (c_nnz > 0)
+    if (c_col_idx == NULL || c_values == NULL)
     {
-        c_col_idx = (int32_t *)malloc((size_t)c_nnz * sizeof(int32_t));
-        c_values = (double *)malloc((size_t)c_nnz * sizeof(double));
-
-        if (c_col_idx == NULL || c_values == NULL)
-        {
-            free(c_row_ptr);
-            free(c_col_idx);
-            free(c_values);
-            free(acc);
-            free(touched);
-            free(mark);
-            return RVSP_ERROR_ALLOCATION_FAILED;
-        }
+        free(c_row_ptr);
+        free(c_col_idx);
+        free(c_values);
+        free(acc);
+        free(touched);
+        free(mark);
+        return RVSP_ERROR_ALLOCATION_FAILED;
     }
 
+    // Numeric pass.
     for (int32_t row = 0; row < a_rows; row++)
     {
         int32_t a_start = a_row_ptr[row];
@@ -236,55 +226,37 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
                 if (mark[col] == 0)
                 {
                     mark[col] = 1;
+                    acc[col] = 0.0;
                     touched[touched_count] = col;
                     touched_count++;
-                    acc[col] = 0.0;
                 }
 
                 acc[col] += a_val * b_values[bp];
             }
         }
 
+        // Keep output rows in ascending column order (canonical CSR).
         qsort(touched, (size_t)touched_count, sizeof(int32_t), compare_i32_f64);
 
-        int32_t out_pos = c_row_ptr[row];
+        int32_t dst = c_row_ptr[row];
 
         for (int32_t i = 0; i < touched_count; i++)
         {
             int32_t col = touched[i];
 
+            // Entries that numerically cancel to zero are not stored.
             if (acc[col] != 0.0)
             {
-                if (out_pos >= c_row_ptr[row + 1])
-                {
-                    reset_f64_workspace(acc, mark, touched, touched_count);
-                    free(c_row_ptr);
-                    free(c_col_idx);
-                    free(c_values);
-                    free(acc);
-                    free(touched);
-                    free(mark);
-                    return RVSP_ERROR_INVALID_ARGUMENT;
-                }
-
-                c_col_idx[out_pos] = col;
-                c_values[out_pos] = acc[col];
-                out_pos++;
+                c_col_idx[dst] = col;
+                c_values[dst] = acc[col];
+                dst++;
             }
+
+            mark[col] = 0;
         }
 
-        reset_f64_workspace(acc, mark, touched, touched_count);
-
-        if (out_pos != c_row_ptr[row + 1])
-        {
-            free(c_row_ptr);
-            free(c_col_idx);
-            free(c_values);
-            free(acc);
-            free(touched);
-            free(mark);
-            return RVSP_ERROR_INVALID_ARGUMENT;
-        }
+        // Symbolic counts are an upper bound since cancellation can shrink rows.
+        c_row_ptr[row + 1] = dst;
     }
 
     free(acc);
@@ -294,7 +266,7 @@ rvsp_status_t rvsp_spgemm_csr_scalar_f64_raw(int32_t a_rows, int32_t a_cols, int
     *c_row_ptr_out = c_row_ptr;
     *c_col_idx_out = c_col_idx;
     *c_values_out = c_values;
-    *c_nnz_out = c_nnz;
+    *c_nnz_out = c_row_ptr[a_rows];
 
     return RVSP_SUCCESS;
 }
