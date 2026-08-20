@@ -220,7 +220,7 @@ F_BUILD=4
 F_CFLAGS=6
 F_CORRECT=21
 
-VALID_ARMS="baseline autovec intrinsic scalar_unroll adaptive"
+VALID_ARMS="baseline autovec intrinsic adaptive"
 VALID_BUILDS="gc gcv"
 VALID_DTYPES="f32 f64 i8"
 
@@ -317,13 +317,9 @@ PRESENT_MATRICES=()
 mtx_path() {
     local name="$1"
 
-    if [ -f "matrices/$name.mtx" ]; then
-        echo "matrices/$name.mtx"
-    elif [ -f "matrices/$name/$name.mtx" ]; then
-        echo "matrices/$name/$name.mtx"
-    else
-        return 1
-    fi
+    [ -f "matrices/$name.mtx" ] || return 1
+
+    echo "matrices/$name.mtx"
 }
 
 preflight() {
