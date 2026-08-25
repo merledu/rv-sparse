@@ -540,7 +540,7 @@ static void usage(const char *prog) {
         "          [--runs N] [--warmup W] [--label TAG] [--header]\n"
         "          [--arm ARM] [--build TAG] [--march FLAGS] [--cflags FLAGS]\n"
         "          [--cc-version VER]\n"
-        "arms:    baseline autovec intrinsic scalar_unroll adaptive\n"
+        "arms:    baseline autovec intrinsic adaptive\n"
         "kernels:\n",
         prog);
 

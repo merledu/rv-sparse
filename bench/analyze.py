@@ -61,9 +61,6 @@ def _infer_arm(kernel):
     """Best-effort arm for legacy CSVs without an arm column."""
     if kernel.startswith("rvv_"):
         return "intrinsic"
-    if kernel.startswith("unroll4_"):
-        return "scalar_unroll"
-
     # scalar_* is ambiguous without build information: the same source can
     # be either the gc baseline or the gcv autovec arm.
     return "-"
