@@ -182,6 +182,49 @@ SHUFFLE="${SHUFFLE:-1}"
 SHUF_SEED="${SHUF_SEED:-$RANDOM}"
 NO_GOVERNOR="${NO_GOVERNOR:-0}"
 
+# Synthetic cases: "ROWS COLS DENSITY SEED TAG [extra bench.c flags...]"
+#
+# TAG is appended to the label so two cases that share a shape but differ in
+# structure stay distinct configs. Use "-" for no suffix.
+#
+# The dense accumulator is 13 bytes per column (rvsp_ws_bytes), so the column
+# count alone decides whether it fits in cache. That is what the "cache ladder"
+# below varies: nonzeros per row is pinned at 8 so the work per row is constant
+# and the only thing changing is accumulator footprint.
+#
+#     cols     accumulator
+#     4096     53 KB
+#     16384    213 KB
+#     65536    852 KB
+#     262144   3.4 MB
+#     1048576  13 MB
+#
+# A tiling win should appear as the ladder crosses the machine's cache size.
+GEN_CASES=(
+    # Original cases, kept so previously collected rows stay valid.
+    "512 512 0.02 42 -"
+    "1024 1024 0.01 42 -"
+    "2048 2048 0.005 42 -"
+    "4096 4096 0.002 42 -"
+
+    # Cache ladder: ~8 nonzeros per row, accumulator spanning 53 KB to 13 MB.
+    "4096 4096 0.001953 42 d8"
+    "16384 16384 0.000488 42 d8"
+    "65536 65536 0.000122 42 d8"
+    "262144 262144 0.0000305 42 d8"
+    "1048576 1048576 0.00000763 42 d8"
+
+    # Sparsity knob, at sizes where those percentages are actually reachable.
+    "2048 2048 0.05 42 sp95"
+    "4096 4096 0.01 42 sp99"
+
+    # Structure variants at the size where the accumulator is near the cache
+    # boundary. Banded has column locality and should benefit least from
+    # tiling; high cv has skewed row degrees and stresses load balance.
+    "65536 65536 0.000122 42 band --gen-band 256 256"
+    "65536 65536 0.000122 42 cv25 --gen-cv 2.5"
+)
+
 MATRICES=(
     wiki-Vote
     email-Enron
@@ -1414,8 +1457,8 @@ echo ">> experiment order per matrix: $(
 
 echo ">> matrix sweep (C = A*A)"
 
-if [ -n "$ONLY_MTX" ]; then
-    MATRIX_LIST=("$ONLY_MTX")
+for case in "${GEN_CASES[@]}"; do
+    read -r R C D S TAG EXTRA <<< "$case"
 
     mtx_path "$ONLY_MTX" >/dev/null ||
         die "ONLY_MTX=$ONLY_MTX but matrices/$ONLY_MTX.mtx does not exist"
@@ -1426,6 +1469,10 @@ fi
 for name in "${MATRIX_LIST[@]}"; do
     mtx="$(mtx_path "$name")"
 
+    if [ -n "$TAG" ] && [ "$TAG" != "-" ]; then
+        label="${label}_${TAG}"
+    fi
+
     mapfile -t ORDER < <(experiment_order)
 
     echo "   [$name] order: $(
@@ -1435,8 +1482,10 @@ for name in "${MATRIX_LIST[@]}"; do
     )"
 
     for i in "${ORDER[@]}"; do
-        run_config "$i" "$name" \
-            --mtx-sq "$mtx"
+        # EXTRA is deliberately unquoted: it carries zero or more flags.
+        # shellcheck disable=SC2086
+        run_config "$i" "$label" \
+            --gen "$R" "$C" "$D" "$S" $EXTRA
     done
 done
 

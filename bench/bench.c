@@ -540,7 +540,12 @@ static void usage(const char *prog) {
         "          [--runs N] [--warmup W] [--label TAG] [--header]\n"
         "          [--arm ARM] [--build TAG] [--march FLAGS] [--cflags FLAGS]\n"
         "          [--cc-version VER]\n"
-        "arms:    baseline autovec intrinsic adaptive\n"
+        "gen structure knobs (only with --gen):\n"
+        "  --gen-cv X        row-degree coefficient of variation (default 0.5)\n"
+        "  --gen-min N       minimum nonzeros per row (default 1)\n"
+        "  --gen-band LO UP  band half-widths (default: unbanded)\n"
+        "  --gen-sym         force symmetric (requires R == C)\n"
+        "arms:    baseline autovec intrinsic scalar_unroll adaptive\n"
         "kernels:\n",
         prog);
 
@@ -591,6 +596,14 @@ int main(int argc, char **argv) {
     int gen_seed = 0;
     double gen_density = 0.0;
 
+    /* Structure knobs. -1 means "leave the genmat default alone", which for
+     * the bandwidths is row_cnt - 1, i.e. no banding. */
+    double gen_cv = 0.5;
+    int gen_min = 1;
+    int gen_lo_band = -1;
+    int gen_up_band = -1;
+    int gen_sym = 0;
+
     const char *mtx_a = NULL;
     const char *mtx_b = NULL;
 
@@ -622,6 +635,16 @@ int main(int argc, char **argv) {
             gen_density = atof(argv[++i]);
             gen_seed = atoi(argv[++i]);
         }
+        else if (!strcmp(argv[i], "--gen-cv") && i + 1 < argc)
+            gen_cv = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--gen-min") && i + 1 < argc)
+            gen_min = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--gen-band") && i + 2 < argc) {
+            gen_lo_band = atoi(argv[++i]);
+            gen_up_band = atoi(argv[++i]);
+        }
+        else if (!strcmp(argv[i], "--gen-sym"))
+            gen_sym = 1;
         else if (!strcmp(argv[i], "--mtx") && i + 2 < argc) {
             src = SRC_MTX;
             mtx_a = argv[++i];
@@ -675,23 +698,46 @@ int main(int argc, char **argv) {
     struct CSR pB = {0};
 
     if (src == SRC_GEN) {
+        if (gen_sym && gen_r != gen_c) {
+            fprintf(stderr,
+                    "--gen-sym requires a square shape (got %dx%d)\n",
+                    gen_r, gen_c);
+            return 2;
+        }
+
         genmat_params_t p =
             genmat_default_params(gen_r, gen_c);
 
         p.density = gen_density;
         p.random_seed = gen_seed;
-        p.cv = 0.5;
-        p.min = 1;
+        p.cv = gen_cv;
+        p.min = gen_min;
+        p.is_symmetric = gen_sym;
+
+        if (gen_lo_band >= 0)
+            p.low_bandwidth = gen_lo_band;
+
+        if (gen_up_band >= 0)
+            p.up_bandwidth = gen_up_band;
 
         gA = genmat_generate_csr(p);
 
+        /* B is C x R so the product is square. Its seed differs so A and B
+         * are independent draws rather than the same matrix twice. */
         genmat_params_t p2 =
             genmat_default_params(gen_c, gen_r);
 
         p2.density = gen_density;
         p2.random_seed = gen_seed + 1;
-        p2.cv = 0.5;
-        p2.min = 1;
+        p2.cv = gen_cv;
+        p2.min = gen_min;
+        p2.is_symmetric = gen_sym;
+
+        if (gen_lo_band >= 0)
+            p2.low_bandwidth = gen_lo_band;
+
+        if (gen_up_band >= 0)
+            p2.up_bandwidth = gen_up_band;
 
         gB = genmat_generate_csr(p2);
 

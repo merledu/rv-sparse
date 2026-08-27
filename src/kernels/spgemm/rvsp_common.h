@@ -33,6 +33,22 @@
     (((x) + ((a) - 1)) & ~((size_t)(a) - 1))
 
 /*
+ * Column-tile width. The dense accumulator is sized by the width of B, so on
+ * a wide matrix it spills out of cache and every probe becomes a memory
+ * access. Tiling walks B in column strips of this many columns so the live
+ * slice of the accumulator stays resident.
+ *
+ * 0 disables tiling and restores the single full-width pass.
+ */
+#ifndef RVSP_TILE_COLS
+#define RVSP_TILE_COLS 0
+#endif
+
+#if RVSP_TILE_COLS < 0
+#error "RVSP_TILE_COLS must be >= 0 (0 disables tiling)"
+#endif
+
+/*
  * Scratch shared across a call. acc is the dense accumulator, mark and
  * touched track which columns are live during the symbolic pass, and scratch
  * backs the column sort. Each region is 64-byte aligned in one buffer.

@@ -93,7 +93,7 @@ static int rand_count(double avg, double std, int min, int max, int curr_seed,
     curr_degree = (int)round(norm_box_muller(avg, std, curr_seed));
   } else {
     double avg_log_norm = log(avg * avg / sqrt(avg * avg + std * std));
-    double std_log_norm = sqrt(log(1 + std * std / avg * avg));
+    double std_log_norm = sqrt(log(1 + (std * std) / (avg * avg)));
 
     curr_degree =
         (int)round(exp(norm_box_muller(avg_log_norm, std_log_norm, curr_seed)));
