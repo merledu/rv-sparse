@@ -80,3 +80,15 @@ strategy to be selected.
 ## License
 
 GPL-3.0-only. See [LICENSE](LICENSE).
+
+
+### Project by **Talha Ahmed** ([@talha-ahmed-1](https://github.com/talha-ahmed-1)) and mentees
+**[C. Ramirez]** ([@crissmath](https://github.com/crissmath)),
+**[Ayokunle Amodu]** ([@ayokunle321](https://github.com/ayokunle321)),
+**[Hamza Mateen]** ([@HamzaMateen](https://github.com/HamzaMateen)) under the
+[Linux Foundation Mentorship Program](https://mentorship.lfx.linuxfoundation.org/),
+sponsored by [**RISC-V International**](https://riscv.org/).
+
+Hardware evaluation was conducted on RISC-V development boards provided by
+**[Cloud-V](https://cloud-v.co)** and the **DC-ROMA II** laptop provided by
+**[DeepComputing](https://deepcomputing.io)**.
