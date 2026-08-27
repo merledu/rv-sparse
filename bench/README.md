@@ -38,6 +38,20 @@ python3 bench/analyze.py bench/results/spgemm_raw.csv --csv-out bench/results/su
 `spgemm_raw.csv` holds one row per timed run and is only ever appended to.
 `summary.csv` holds one row per config, with medians and confidence intervals.
 
+Optionally plot it. Both scripts read the summary and need matplotlib.
+
+```bash
+python3 bench/plots/speedup_overview.py
+python3 bench/plots/speedup_oprow.py
+```
+
+Figures are written next to the summary, so `bench/results/`, which is
+gitignored. Pass a second argument to send them somewhere else.
+
+To reproduce a published table, run the sweep in one pass as above and
+summarise once. Speedups are computed within a single file, so the baseline and
+the kernels being scored against it have to be in the same raw CSV.
+
 ## Narrowing the run
 
 The whole table runs by default. To run less:
@@ -60,8 +74,16 @@ bash bench/run_bench.sh --dtype f32 --runs 30
 
 Runs resume safely. A config counts as done only at exactly `RUNS` rows, and a
 partial group is rerun rather than topped up, so interrupting a sweep is fine.
-Narrowing with `--kernels` keeps the baseline in the batch so speedups can still
-be computed.
+
+Narrowing is safe to combine with a full sweep. Every run appends to the same
+raw CSV, `--kernels` only chooses which configs execute, and a filter that
+excludes the baseline gets it added back so speedups still compute. Several
+narrow runs therefore accumulate into one file and one summary.
+
+The way to get this wrong is to set `CSV` or `OUT_DIR` and split runs across
+separate files. A summary can only divide by a baseline present in its own
+file, so a CSV holding just the vector kernels yields blank speedups. Keep one
+raw file unless you are deliberately separating a second toolchain.
 
 ## Analysis
 
@@ -69,11 +91,12 @@ be computed.
 median, spread, GOP/s, and a speedup with a bootstrap 95% confidence interval. A
 config whose interval includes 1.0 is flagged not significant.
 
-The speedup denominator is the `baseline` arm at the `gc` build for the same
-matrix. This is cross-build on purpose. `autovec` is the scalar source compiled
-with the vector extension on, so scoring it against its own build would compare
-it to itself. `--baseline NAME` re-scores against a different kernel without
-rerunning anything.
+The speedup denominator is the `baseline` arm for the same matrix. Every arm
+builds at `rv64gcv`, so the baseline is not a different ISA, it is the same
+scalar source with the vectorizer switched off. `autovec` and `baseline` are
+then the same code compiled for the same target, and the only thing that varies
+is whether the compiler was allowed to vectorize. `--baseline NAME` re-scores
+against a different kernel without rerunning anything.
 
 ## The experiment table
 
@@ -82,7 +105,7 @@ row per cell of the sweep.
 
 ```text
 arm        kernel       dtype  build  cflags
-baseline   scalar_f32   f32    gc     -
+baseline   scalar_f32   f32    gcv    -fno-tree-vectorize -fno-tree-slp-vectorize
 autovec    scalar_f32   f32    gcv    -
 intrinsic  rvv_f32      f32    gcv    -
 ```
@@ -90,10 +113,14 @@ intrinsic  rvv_f32      f32    gcv    -
 `arm` is what the row is evidence for, `kernel` must match a name in `bench.c`,
 `build` is `gc` or `gcv`, and `cflags` is extra compile flags or `-`. An arm is
 a kernel and a compilation together, which is why the first two rows share a
-kernel but differ in build. Because the tunables are compile-time macros, each
-distinct `(build, cflags)` combination is its own binary and its own config. A
-vector kernel on `build=gc` is rejected before building, since it would not
-link.
+kernel and a build and differ only in cflags. Each distinct `(build, cflags)`
+combination is its own binary and its own config. A vector kernel on
+`build=gc` is rejected before building, since it would not link.
+
+The no-vectorize flags are GCC spelling. Clang ignores `-fno-tree-vectorize`
+with a warning rather than an error, so a clang build of that row would be
+silently vectorized and stop being a baseline. Use `-fno-vectorize
+-fno-slp-vectorize` there.
 
 ## Adding a kernel
 
@@ -140,6 +167,7 @@ run_bench.sh       preflight, build, sweep, resume
 bench.c            timing harness, one kernel on one product
 csr_check.c        canonical CSR check over the matrix set
 analyze.py         raw rows to summary with confidence intervals
+plots/             figures from the summary, needs matplotlib
 env.sh.example     per-machine config template
-results/           CSVs, created on first run
+results/           CSVs and figures, created on first run
 ```
