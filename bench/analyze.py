@@ -32,7 +32,7 @@ from collections import defaultdict
 
 
 BASELINE_ARM = "baseline"
-BASELINE_BUILD = "gc"
+BASELINE_BUILD = "gcv"
 
 NO_CFLAGS = "-"
 
@@ -61,9 +61,6 @@ def _infer_arm(kernel):
     """Best-effort arm for legacy CSVs without an arm column."""
     if kernel.startswith("rvv_"):
         return "intrinsic"
-    if kernel.startswith("unroll4_"):
-        return "scalar_unroll"
-
     # scalar_* is ambiguous without build information: the same source can
     # be either the gc baseline or the gcv autovec arm.
     return "-"
@@ -417,7 +414,7 @@ def add_speedups(
                 baseline_kernel,
                 baseline_build,
             )
-            and key[2] == NO_CFLAGS
+            and entry["time_median"] == base_median
         ):
             entry["speedup_lo"] = 1.0
             entry["speedup_hi"] = 1.0
@@ -446,6 +443,9 @@ def _short_cflags(cflags):
     """Make compiler defines readable in the table."""
     if not cflags or cflags == NO_CFLAGS:
         return "-"
+
+    if "-fno-tree-vectorize" in cflags:
+        return "novec"
 
     return " ".join(
         token
@@ -494,8 +494,7 @@ def print_table(
 
     print(
         f"speedup denominator: {denominator} @ "
-        f"{baseline_build or base_build}, same matrix and dtype, "
-        f"default cflags\n"
+        f"{baseline_build or base_build}, same matrix and dtype\n"
     )
     print(header)
     print("-" * len(header))
@@ -604,7 +603,7 @@ def write_csv(summary, path):
             "gops_std",
             "gops_min",
             "gops_max",
-            "speedup_vs_gc_scalar",
+            "speedup_vs_baseline",
             "speedup_ci_lo",
             "speedup_ci_hi",
             "speedup_significant",

@@ -256,7 +256,7 @@ F_BUILD=4
 F_CFLAGS=6
 F_CORRECT=21
 
-VALID_ARMS="baseline autovec intrinsic scalar_unroll adaptive"
+VALID_ARMS="baseline autovec intrinsic adaptive"
 VALID_BUILDS="gc gcv"
 VALID_DTYPES="f32 f64 i8"
 
@@ -344,7 +344,6 @@ fi
 # ============================================================================
 
 CC_VERSION=""
-SYNTHETIC_ONLY=0
 PRESENT_MATRICES=()
 
 # Matrix files live flat as matrices/<name>.mtx. The nested layout that
@@ -353,13 +352,9 @@ PRESENT_MATRICES=()
 mtx_path() {
     local name="$1"
 
-    if [ -f "matrices/$name.mtx" ]; then
-        echo "matrices/$name.mtx"
-    elif [ -f "matrices/$name/$name.mtx" ]; then
-        echo "matrices/$name/$name.mtx"
-    else
-        return 1
-    fi
+    [ -f "matrices/$name.mtx" ] || return 1
+
+    echo "matrices/$name.mtx"
 }
 
 preflight() {
@@ -520,9 +515,10 @@ You are most likely cross-compiling: build on the target, or use an emulator."
     done
 
     if [ "${#PRESENT_MATRICES[@]}" -eq 0 ]; then
-        SYNTHETIC_ONLY=1
-        echo "   WARNING: no .mtx files found under matrices/ — running SYNTHETIC ONLY."
-        echo "            Fetch them with matrices/getResources.sh for the real-matrix sweep."
+        die "no .mtx files found under matrices/.
+
+Fetch them first:
+    cd matrices && bash getResources.sh && cd .."
     elif [ "${#missing_m[@]}" -gt 0 ]; then
         echo "   ${#PRESENT_MATRICES[@]}/${#MATRICES[@]} matrices present; skipping ${#missing_m[@]}: ${missing_m[*]}"
     else
@@ -1159,7 +1155,6 @@ fi
     echo "core_isolated: $(cat /sys/devices/system/cpu/isolated 2>/dev/null || echo none)"
     echo "freq_khz: $(read_freq)"
     echo "isa: $(grep -m1 isa /proc/cpuinfo 2>/dev/null || echo n/a)"
-    echo "synthetic_only: $SYNTHETIC_ONLY"
     echo ""
 } | tee -a "$OUT_DIR/env_log.txt" > "$OUT_DIR/env.txt"
 
@@ -1460,12 +1455,19 @@ echo ">> experiment order per matrix: $(
 # SWEEP
 # ============================================================================
 
-echo ">> synthetic sweep"
+echo ">> matrix sweep (C = A*A)"
 
 for case in "${GEN_CASES[@]}"; do
     read -r R C D S TAG EXTRA <<< "$case"
 
-    label="gen_${R}x${C}_d${D}"
+    mtx_path "$ONLY_MTX" >/dev/null ||
+        die "ONLY_MTX=$ONLY_MTX but matrices/$ONLY_MTX.mtx does not exist"
+else
+    MATRIX_LIST=("${PRESENT_MATRICES[@]}")
+fi
+
+for name in "${MATRIX_LIST[@]}"; do
+    mtx="$(mtx_path "$name")"
 
     if [ -n "$TAG" ] && [ "$TAG" != "-" ]; then
         label="${label}_${TAG}"
@@ -1473,7 +1475,7 @@ for case in "${GEN_CASES[@]}"; do
 
     mapfile -t ORDER < <(experiment_order)
 
-    echo "   [$label] order: $(
+    echo "   [$name] order: $(
         for i in "${ORDER[@]}"; do
             printf '%s@%s ' "${EXP_KERNEL[i]}" "$(exp_tag "$i")"
         done
@@ -1486,38 +1488,6 @@ for case in "${GEN_CASES[@]}"; do
             --gen "$R" "$C" "$D" "$S" $EXTRA
     done
 done
-
-if [ "$SYNTHETIC_ONLY" = "1" ]; then
-    echo ">> real matrix sweep SKIPPED — no .mtx files present"
-else
-    echo ">> real matrix sweep (C = A*A)"
-
-    if [ -n "$ONLY_MTX" ]; then
-        MATRIX_LIST=("$ONLY_MTX")
-
-        mtx_path "$ONLY_MTX" >/dev/null ||
-            die "ONLY_MTX=$ONLY_MTX but neither matrices/$ONLY_MTX.mtx nor matrices/$ONLY_MTX/$ONLY_MTX.mtx exists"
-    else
-        MATRIX_LIST=("${PRESENT_MATRICES[@]}")
-    fi
-
-    for name in "${MATRIX_LIST[@]}"; do
-        mtx="$(mtx_path "$name")"
-
-        mapfile -t ORDER < <(experiment_order)
-
-        echo "   [$name] order: $(
-            for i in "${ORDER[@]}"; do
-                printf '%s@%s ' "${EXP_KERNEL[i]}" "$(exp_tag "$i")"
-            done
-        )"
-
-        for i in "${ORDER[@]}"; do
-            run_config "$i" "$name" \
-                --mtx-sq "$mtx"
-        done
-    done
-fi
 
 # ============================================================================
 # FINAL INTEGRITY CHECK
